@@ -2,6 +2,15 @@
 // Author: Rômulo Azevedo (Student ID: L00188348)
 // Purpose: Demonstrate how AWS CloudFormation can automate deployment of a REST API + Lambda setup
 
+// AWS SDK para Node.js
+const AWS = require("aws-sdk");
+
+// Criar instância do DynamoDB DocumentClient
+const dynamoDb = new AWS.DynamoDB.DocumentClient();
+
+// Nome da tabela
+const TABLE_NAME = "TasksTable";
+
 exports.handler = async (event) => {
     console.log("Incoming event:", JSON.stringify(event));
   
@@ -12,29 +21,47 @@ exports.handler = async (event) => {
     switch (method) {
       // GET: Fetch or list data 
       case "GET":
+        const data = await dynamoDb.scan({ TableName: TABLE_NAME }).promise();
         response = {
           statusCode: 200,
-          body: JSON.stringify({ message: "GET request received: listing tasks" }),
+          body: JSON.stringify({ tasks: data.Items }),
         };
-        break;
+        break;      
   
-      // POST: Create or add new data 
+   // POST: Create or add new data 
       case "POST":
         const body = JSON.parse(event.body || "{}");
+        // Unique ID for task
+        const taskId = Date.now().toString();
+        const task = { taskId, ...body };
+        // Save to DynamoDB
+        await dynamoDb.put({
+            TableName: TABLE_NAME,
+            Item: task
+        }).promise();
         response = {
-          statusCode: 201,
-          body: JSON.stringify({
-            message: "POST request received: new task created",
-            task: body,
-          }),
+        statusCode: 201,
+        body: JSON.stringify({
+            message: "Task created successfully",
+            task, // retorna task completo com taskId
+        }),
         };
         break;
   
       // DELETE: Remove an item 
       case "DELETE":
+        // Request all tasks
+        const items = await dynamoDb.scan({ TableName: TABLE_NAME }).promise();
+        // Delete each task individually
+        await Promise.all(items.Items.map(item =>
+            dynamoDb.delete({
+              TableName: TABLE_NAME,
+              Key: { taskId: item.taskId }
+            }).promise()
+          ));
         response = {
           statusCode: 200,
-          body: JSON.stringify({ message: "DELETE request received: task removed" }),
+          body: JSON.stringify({ message: "All tasks deleted" }),
         };
         break;
   

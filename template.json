@@ -16,11 +16,30 @@
               }
             ]
           },
-          "ManagedPolicyArns": [
-            "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-          ]
-        }
-      },
+    "ManagedPolicyArns": [
+    "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+            ],
+            "Policies": [
+              {
+                "PolicyName": "DynamoDBAccess",
+                "PolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "dynamodb:Scan",
+                        "dynamodb:PutItem",
+                        "dynamodb:DeleteItem"
+                      ],
+                      "Resource": "arn:aws:dynamodb:us-east-1:262164343293:table/TasksTable"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
   
       "TaskLambdaFunction": {
         "Type": "AWS::Lambda::Function",
@@ -31,19 +50,8 @@
           "Runtime": "nodejs20.x",
           "Timeout": 10,
           "Code": {
-            "ZipFile": {
-              "Fn::Join": ["\n", [
-                "exports.handler = async (event) => {",
-                "  const method = event.httpMethod;",
-                "  let message = '';",
-                "  if (method === 'GET') message = 'GET request received';",
-                "  else if (method === 'POST') message = 'POST request received';",
-                "  else if (method === 'DELETE') message = 'DELETE request received';",
-                "  else message = 'Unsupported method';",
-                "  return { statusCode: 200, body: JSON.stringify({ message }) };",
-                "};"
-              ]]
-            }
+            "S3Bucket": "romulo-ca1-lambda-2025",
+            "S3Key": "lambda.zip"
           }
         }
       },
