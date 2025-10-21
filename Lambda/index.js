@@ -5,14 +5,20 @@
 // AWS SDK para Node.js
 const AWS = require("aws-sdk");
 
+// Import AWS Lambda Powertools modules for logging
+const { Logger } = require('@aws-lambda-powertools/logger');
+
 // Criar instância do DynamoDB DocumentClient
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
+
+// Initialize Powertools utilities
+const logger = new Logger();   // For structured logging
 
 // Nome da tabela
 const TABLE_NAME = "TasksTable";
 
 exports.handler = async (event) => {
-    console.log("Incoming event:", JSON.stringify(event));
+    logger.info("Incoming event", { event });
   
     // Identify the HTTP method used (GET, POST, DELETE)
     const method = event.httpMethod;
