@@ -2,87 +2,68 @@
 // Author: Rômulo Azevedo (Student ID: L00188348)
 // Purpose: Demonstrate how AWS CloudFormation can automate deployment of a REST API + Lambda setup
 
-// AWS SDK para Node.js
+// AWS SDK and Powertools imports - ONLY ONCE at the top
 const AWS = require("aws-sdk");
-
-// Import AWS Lambda Powertools modules for logging
 const { Logger } = require('@aws-lambda-powertools/logger');
+const { Tracer } = require('@aws-lambda-powertools/tracer');
+const { Metrics } = require('@aws-lambda-powertools/metrics');
 
-// Criar instância do DynamoDB DocumentClient
+// Initialize Powertools utilities with service name
+const logger = new Logger({ 
+    serviceName: 'task-service'
+});
+const tracer = new Tracer({ 
+    serviceName: 'task-service' 
+});
+const metrics = new Metrics({ 
+    namespace: 'TaskApp', 
+    serviceName: 'task-service'
+});
+
+// Create DynamoDB client - ONLY ONCE
 const dynamoDb = new AWS.DynamoDB.DocumentClient();
 
-// Initialize Powertools utilities
-const logger = new Logger();   // For structured logging
+// Capture AWS service with tracer (optional)
+tracer.captureAWSClient(dynamoDb.service);
 
-// Nome da tabela
 const TABLE_NAME = "TasksTable";
 
 exports.handler = async (event) => {
-    logger.info("Incoming event", { event });
-  
-    // Identify the HTTP method used (GET, POST, DELETE)
-    const method = event.httpMethod;
-    let response;
-  
-    switch (method) {
-      // GET: Fetch or list data 
-      case "GET":
+    logger.info('Event received', { event });
+    
+    try {
+        // Scan DynamoDB table
         const data = await dynamoDb.scan({ TableName: TABLE_NAME }).promise();
-        response = {
-          statusCode: 200,
-          body: JSON.stringify({ tasks: data.Items }),
+        logger.info('DynamoDB scan successful', { itemCount: data.Items.length });
+        
+        // Add custom metric
+        metrics.addMetric('TasksReturned', 'Count', data.Items.length);
+        
+        return {
+            statusCode: 200,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                tasks: data.Items || [],
+                count: data.Count || 0
+            })
         };
-        break;      
-  
-   // POST: Create or add new data 
-      case "POST":
-        const body = JSON.parse(event.body || "{}");
-        // Unique ID for task
-        const taskId = Date.now().toString();
-        const task = { taskId, ...body };
-        // Save to DynamoDB
-        await dynamoDb.put({
-            TableName: TABLE_NAME,
-            Item: task
-        }).promise();
-        response = {
-        statusCode: 201,
-        body: JSON.stringify({
-            message: "Task created successfully",
-            task, // retorna task completo com taskId
-        }),
-        };
-        break;
-  
-      // DELETE: Remove an item 
-      case "DELETE":
-        // Request all tasks
-        const items = await dynamoDb.scan({ TableName: TABLE_NAME }).promise();
-        // Delete each task individually
-        await Promise.all(items.Items.map(item =>
-            dynamoDb.delete({
-              TableName: TABLE_NAME,
-              Key: { taskId: item.taskId }
-            }).promise()
-          ));
-        response = {
-          statusCode: 200,
-          body: JSON.stringify({ message: "All tasks deleted" }),
-        };
-        break;
-  
-      // Any other HTTP method not supported
-      default:
-        response = {
-          statusCode: 405,
-          body: JSON.stringify({ error: "Method not allowed" }),
+        
+    } catch (err) {
+        logger.error('Error fetching tasks from DynamoDB', { 
+            error: err.message,
+            stack: err.stack
+        });
+        
+        return {
+            statusCode: 500,
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: 'Internal server error'
+            })
         };
     }
-  
-    // Return the API Gateway-compatible response
-    return {
-      ...response,
-      headers: { "Content-Type": "application/json" },
-    };
-  };
-  
+};
