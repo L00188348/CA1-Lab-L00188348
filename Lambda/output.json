@@ -1,1 +1,1 @@
-{"statusCode":200,"headers":{"Content-Type":"application/json"},"body":"{\"tasks\":[{\"taskId\":\"1\",\"completed\":false,\"title\":\"Primeira Tarefa\"}],\"count\":1}"}
+{"statusCode":201,"headers":{"Content-Type":"application/json","Access-Control-Allow-Origin":"*"},"body":"{\"message\":\"Task created successfully\",\"task\":{\"taskId\":\"test-123\",\"title\":\"My Task\",\"completed\":false,\"createdAt\":\"2025-10-23T15:11:47.305Z\",\"updatedAt\":\"2025-10-23T15:11:47.305Z\"}}"}
